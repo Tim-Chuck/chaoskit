@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.sqlite3*
+reports/
+.coverage
+
+# Personal application materials and local publishing workspace
+docs/resume/
+.publish/
+INTERVIEW.md
+
+# Local credentials and editor settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.vscode/
+.idea/

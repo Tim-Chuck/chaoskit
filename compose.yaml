@@ -1,0 +1,33 @@
+name: chaoskit
+x-image: &image
+  image: chaoskit:local
+  build: .
+services:
+  demo:
+    <<: *image
+    command: ["python", "-m", "chaoskit", "demo", "--host", "0.0.0.0"]
+    networks:
+      default:
+        aliases: [demo.local]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9001/ping', timeout=2)"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+  proxy:
+    <<: *image
+    init: true
+    shm_size: 512mb
+    environment:
+      CHAOSKIT_UPSTREAM: http://demo.local:9001
+      CHAOSKIT_DB: /data/chaoskit.sqlite3
+    depends_on:
+      demo:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - data:/data
+      - ./reports:/app/reports
+volumes:
+  data:
