@@ -1,0 +1,82 @@
+<!doctype html>
+{%- from "labels.html" import fault_labels, state_labels %}
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChaosKit · 前端容错验收报告</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface: #fff;
+    --surface-low: #f7f9fc;
+    --divider: #dce1e9;
+    --subtle: #484d56;
+    --primary: #0b57d0;
+    --primary-soft: #d3e3fd;
+    --on-soft: #083c88;
+    --danger: #a50e0e;
+    --success: #146c2e;
+    background: var(--surface-low); color: #202124;
+    font: 16px/1.55 "DM Sans", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "WenQuanYi Zen Hei", system-ui, sans-serif;
+  }
+  *, *::before { box-sizing: border-box; }
+  body, h1, p { margin: 0; }
+  header {
+    display: flex; align-items: center; gap: 10px; min-height: 64px;
+    padding: 8px max(20px, calc((100% - 1090px) / 2));
+    border-bottom: 1px solid var(--divider); background: var(--surface);
+  }
+  header::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
+  header strong { font-size: 20px; letter-spacing: -.034em; }
+  header span { color: var(--subtle); font-size: 14px; }
+  main { max-width: 1130px; margin-inline: auto; padding: 34px 20px 46px; }
+  h1 { line-height: 1.22; font-size: clamp(30px,5vw,46px); }
+  h2 { font-size: 19px; margin: 0 0 12px; }
+  .intro {
+    display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px;
+    padding: 25px; border-radius: 24px; background: var(--primary-soft);
+  }
+  .intro p { color: var(--on-soft); margin-top: 8px; }
+  .score {
+    padding: 3px 15px; border-radius: 28px; background: var(--surface); color: var(--on-soft);
+    font-size: clamp(23px,4vw,34px); font-weight: 700; white-space: nowrap;
+  }
+  section { border: 1px solid var(--divider); border-radius: 22px; background: var(--surface); padding: 20px; margin-top: 16px; }
+  dl { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 14px; margin: 0; }
+  dt, dd { margin: 0; padding: 5px 0; border-bottom: 1px solid var(--divider); }
+  dt:last-of-type, dd:last-of-type { border-bottom: 0; }
+  .pass { color: var(--success); }
+  .fail { color: var(--danger); }
+  .timeline { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 14px; }
+  figure { margin: 0; }
+  figure img { display: block; width: 100%; height: auto; border: 1px solid var(--divider); border-radius: 14px; }
+  figcaption { margin-top: 7px; font-size: 14px; color: var(--subtle); }
+  code { overflow-wrap: anywhere; }
+  a { color: var(--primary); text-underline-offset: .2em; }
+  :focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+  @media (max-width: 540px) {
+    main { padding: 20px 12px 35px; }
+    .intro, section { padding: 17px; border-radius: 18px; }
+  }
+</style>
+</head>
+<body>
+<header><strong>ChaosKit</strong><span>验收报告</span></header>
+<main>
+  <div class="intro">
+    <div><h1>前端容错验收</h1><p><code>{{ rule.method }} {{ scenario.api_path }}</code> · {{ fault_labels[rule.fault] }}{% if rule.fault != 'abort' %} {{ rule.value }}{{ ' ms' if rule.fault != 'status' else '' }}{% endif %}</p></div>
+    {% if valid %}<div class="score">{{ score }} / 100 <small>分</small></div>{% endif %}
+  </div>
+  {% if reason %}<section class="fail"><h2>本次未评分</h2><p>{{ reason }}</p></section>{% endif %}
+  {% if valid %}<section><h2>分项结果</h2><dl>
+    {% for item in checks %}<dt>{{ item.check }}</dt><dd class="{{ 'pass' if item.passed else 'fail' }}">{{ item.points if item.passed else '0' }} / {{ item.points }}</dd>{% endfor %}
+  </dl></section>{% endif %}
+  {% if baseline or samples %}<section><h2>页面状态时间线</h2><div class="timeline">
+    {% if baseline %}<figure><a href="baseline.png"><img src="baseline.png" width="960" height="600" alt="查看基线页面截图"></a><figcaption>基线 · 接口正常</figcaption></figure>{% endif %}
+    {% for item in samples %}<figure><a href="{{ item.image }}"><img src="{{ item.image }}" width="960" height="600" alt="查看 {{ item.actual_ms }} ms 时的截图，{{ state_labels[item.state] }}"></a><figcaption>{{ item.actual_ms }} ms · {{ state_labels[item.state] }}（计划 {{ item.planned_ms }} ms）</figcaption></figure>{% endfor %}
+    {% if recovery %}<figure><a href="recovery.png"><img src="recovery.png" width="960" height="600" alt="查看重试成功后的页面截图"></a><figcaption>重试 · 页面已恢复</figcaption></figure>{% endif %}
+  </div></section>{% endif %}
+  <section><h2>验收记录</h2><p>{{ proxy | length }} 条代理事件 · {{ network | length }} 条浏览器网络事件 · {{ errors | length }} 条未捕获异常</p><p><a href="report.json">查看原始信号和事件（JSON）</a></p></section>
+</main>
+</body></html>

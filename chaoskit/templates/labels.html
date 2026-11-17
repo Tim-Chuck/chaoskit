@@ -1,0 +1,38 @@
+{% set fault_labels = {
+  "delay": "响应延迟",
+  "status": "HTTP 错误",
+  "abort": "连接中断",
+  "timeout": "请求超时"
+} %}
+{% set outcome_labels = dict(fault_labels, **{
+  "pass": "正常转发",
+  "blocked": "请求已拦截",
+  "fail_open": "故障注入失败，已回退转发",
+  "upstream_error": "上游异常",
+  "tool_error": "工具异常"
+}) %}
+{% set state_labels = {
+  "blank": "页面白屏",
+  "error": "显示错误提示",
+  "loading": "仍在加载",
+  "success": "加载成功",
+  "unknown": "未识别到页面状态"
+} %}
+{% set log_reasons = {
+  "No enabled rule matched": "未匹配到已启用的规则",
+  "Upstream host is outside the configured local boundary": "上游地址不在本地允许范围内",
+  "Unsafe methods are disabled": "未开启写入请求转发",
+  "Injection failed before forwarding": "转发前无法注入故障",
+  "Could not connect to upstream": "无法连接上游",
+  "Upstream timed out": "等待上游响应超时",
+  "Upstream unavailable": "上游服务不可用",
+  "Unsafe upstream redirect": "上游重定向超出允许范围"
+} %}
+
+{% macro log_reason(reason) -%}
+  {%- if reason.endswith(" match(es) · ordered by path specificity, priority, ID") -%}
+    {{ reason.split(" ", 1)[0] }} 条规则匹配，按路径具体程度、优先级和编号择一执行
+  {%- else -%}
+    {{ log_reasons.get(reason, reason) }}
+  {%- endif -%}
+{%- endmacro %}

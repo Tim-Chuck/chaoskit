@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>订单 CK-1024</title>
+  <link rel="stylesheet" href="/_chaoskit/static/workbench.css?v=3">
+  <script src="/_chaoskit/static/orders.js" defer></script>
+</head>
+<body class="order-page" data-fixture="{{ fixture }}">
+<header class="top-bar">
+  <a class="top-brand" href="/">ChaosKit</a>
+  <nav aria-label="主导航"><a href="/">控制台</a><a href="{{ request.url.path }}" aria-current="page">示例订单</a></nav>
+</header>
+<main class="order">
+  <h1>订单详情</h1>
+  <p class="order-label">订单编号 CK-1024</p>
+  <section class="sheet order-card" aria-live="polite">
+    <div data-chaoskit="loading"><div class="skeleton"></div><div class="skeleton short"></div><p>正在加载订单…</p></div>
+    <div data-chaoskit="error" class="order-error" hidden><strong>订单加载失败</strong><p>{% if fixture == 'complete' %}请重试以重新获取订单详情。{% else %}暂时无法获取订单详情。{% endif %}</p></div>
+    {% if fixture == 'complete' %}<button type="button" data-chaoskit="retry" hidden>重新加载订单</button>{% endif %}
+    <div data-chaoskit="success" hidden><strong id="product"></strong><p id="payment"></p></div>
+  </section>
+</main>
+</body>
+</html>

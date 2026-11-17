@@ -1,0 +1,116 @@
+<!doctype html>
+{%- from "labels.html" import fault_labels, outcome_labels, log_reason %}
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChaosKit · 故障注入控制台</title>
+  <link rel="stylesheet" href="/_chaoskit/static/workbench.css?v=3">
+  <script src="/_chaoskit/static/workbench.js?v=3" defer></script>
+</head>
+<body>
+<header class="top-bar">
+  <a class="top-brand" href="/">ChaosKit</a>
+  <nav aria-label="主导航"><a href="/" aria-current="page">控制台</a><a href="/demo/complete">示例订单</a></nav>
+</header>
+<main>
+  <section class="search-hero" aria-labelledby="workbench-title">
+    <h1 class="wordmark" id="workbench-title" aria-label="ChaosKit"><span>C</span><span>h</span><span>a</span><span>os</span><span>K</span><span>it</span></h1>
+    <p class="hero-subtitle">本地 API 故障注入控制台</p>
+    <form class="record-search" id="record-search" role="search" aria-label="搜索控制台记录" hidden>
+      <span class="search-icon" aria-hidden="true"></span>
+      <label class="visually-hidden" for="record-query">搜索规则和请求日志</label>
+      <input id="record-query" type="search" placeholder="搜索规则编号、路径或状态码" autocomplete="off" spellcheck="false">
+      <button type="button" class="search-clear" id="search-clear" aria-label="清空搜索" hidden>×</button>
+      <button class="search-submit" type="submit">搜索</button>
+    </form>
+    {% if not upstream_ready %}<p role="alert" class="notice">上游地址未通过校验或无法解析。请检查域名和本地允许范围后重启代理。</p>{% endif %}
+  </section>
+
+  <div class="workspace">
+    <div class="workspace-inner">
+      <div class="workspace-tools">
+        <div class="scope-filters" role="group" aria-label="搜索范围" hidden>
+          <button type="button" data-scope="all" aria-pressed="true">全部</button>
+          <button type="button" data-scope="rules" aria-pressed="false">规则</button>
+          <button type="button" data-scope="requests" aria-pressed="false">请求日志</button>
+        </div>
+        <p id="search-status" class="visually-hidden" role="status"></p>
+        <a class="button new-rule" href="#rule-id">新建规则</a>
+      </div>
+
+      <div class="split">
+        <div class="results">
+          <section class="sheet rule-list" data-results="rules" aria-labelledby="rule-list-title">
+            <div class="section-head"><h2 id="rule-list-title">已保存规则</h2><span class="section-count" data-count>{{ rules | length }} 条</span></div>
+            {% if rules %}
+            <ul class="rule-results">
+              {% for rule in rules %}
+              <li data-row data-rule='{{ rule.model_dump(mode="json") | tojson }}'>
+                <div class="rule-summary">
+                  <h3>{{ rule.id }}</h3>
+                  <p><code>{{ rule.method }} {{ rule.path }}</code></p>
+                  <div class="rule-meta">
+                    <span class="tag {{ 'on' if rule.enabled else '' }}">{{ fault_labels[rule.fault] }}{% if rule.fault != 'abort' %} {{ rule.value }}{{ ' ms' if rule.fault != 'status' else '' }}{% endif %}</span>
+                    <span>{{ '已启用' if rule.enabled else '已停用' }} · 优先级 {{ rule.priority }}</span>
+                  </div>
+                </div>
+                <div class="row-actions" role="group" aria-label="{{ rule.id }} 的操作">
+                  <button class="text" type="button" data-action="edit">编辑</button>
+                  <button class="text" type="button" data-action="toggle">{{ '停用' if rule.enabled else '启用' }}</button>
+                  <button class="text delete" type="button" data-action="delete">删除</button>
+                </div>
+              </li>
+              {% endfor %}
+            </ul>
+            {% else %}<p class="empty" data-empty>暂无规则。新建规则即可模拟故障。</p>{% endif %}
+            <p class="empty" data-no-match hidden>没有找到匹配的规则。</p>
+          </section>
+
+          <section class="sheet journal" data-results="requests" aria-labelledby="journal-title">
+            <div class="section-head">
+              <div class="section-title"><h2 id="journal-title">最近请求</h2><span class="section-count" data-count>{{ requests | length }} 条</span></div>
+              <a class="button text refresh-logs" href="/">刷新日志</a>
+            </div>
+            {% if requests %}
+            <p class="table-hint">可横向滚动查看完整日志。</p>
+            <div class="table-wrap" tabindex="0" role="region" aria-label="最近请求表格"><table>
+              <thead><tr><th>时间（UTC）</th><th>请求</th><th>状态码</th><th>耗时</th><th>处理结果 / 命中规则</th></tr></thead>
+              <tbody>{% for row in requests %}
+                <tr data-row>
+                  <td>{{ row.time }}</td>
+                  <td><code>{{ row.method }} {{ row.path }}</code></td>
+                  <td><span class="http-code{% if row.status and row.status >= 400 %} http-error{% elif row.status and 200 <= row.status < 300 %} http-success{% endif %}">{{ row.status if row.status is not none else '—' }}</span></td>
+                  <td>{{ row.ms }} ms</td>
+                  <td>{{ outcome_labels.get(row.outcome, row.outcome) }}{% if row.rule %} · <code>{{ row.rule }}</code>{% endif %}<br><small>{{ log_reason(row.reason) }}</small></td>
+                </tr>
+              {% endfor %}</tbody>
+            </table></div>
+            {% else %}<p class="empty" data-empty>暂无请求记录。打开<a href="/demo/complete">示例订单</a>后，这里会显示代理记录。</p>{% endif %}
+            <p class="empty" data-no-match hidden>没有找到匹配的请求。</p>
+          </section>
+        </div>
+
+        <form class="sheet editor" id="rule-form" novalidate aria-labelledby="form-title">
+          <div><h2 id="form-title">新建规则</h2><p class="editor-help">保存后立即生效。</p></div>
+          <label for="rule-id">规则编号<input id="rule-id" name="id" required pattern="[a-zA-Z0-9_\-]{1,48}" placeholder="slow-orders"></label>
+          <label>路径匹配表达式<input name="path" required maxlength="240" value="/api/orders/**" aria-describedby="path-hint"></label>
+          <p class="field-hint" id="path-hint"><code>*</code> 匹配单段内的字符，<code>**</code> 可匹配多段。</p>
+          <div class="fields">
+            <label><span id="method-name">请求方法</span><select name="method" aria-labelledby="method-name">{% for method in ['GET','HEAD','OPTIONS','POST','PUT','PATCH','DELETE','*'] %}<option value="{{ method }}">{{ '任意方法' if method == '*' else method }}</option>{% endfor %}</select></label>
+            <label>优先级<input name="priority" type="number" min="0" max="9999" value="10" required></label>
+          </div>
+          <div class="fields">
+            <label><span id="fault-name">故障类型</span><select name="fault" aria-labelledby="fault-name">{% for fault, label in fault_labels.items() %}<option value="{{ fault }}">{{ label }}</option>{% endfor %}</select></label>
+            <label id="value-label"><span>延迟时间（毫秒）</span><input name="value" type="number" value="5000" required></label>
+          </div>
+          <label class="toggle"><input name="enabled" type="checkbox" checked> 启用规则</label>
+          <div class="actions"><button type="submit">保存规则</button><button type="reset" class="secondary">重置</button></div>
+          <p id="form-message" role="alert"></p>
+        </form>
+      </div>
+    </div>
+  </div>
+</main>
+</body>
+</html>
